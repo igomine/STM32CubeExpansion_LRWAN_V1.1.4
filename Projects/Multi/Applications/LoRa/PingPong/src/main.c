@@ -1,4 +1,5 @@
 //2018.3.2
+//test
 /*
  / _____)             _              | |
 ( (____  _____ ____ _| |_ _____  ____| |__
@@ -122,9 +123,26 @@ typedef enum
     TX_TIMEOUT,
 }States_t;
 
-#define RX_TIMEOUT_VALUE                            5000
+typedef struct
+{
+	volatile unsigned int Preamble;
+	volatile unsigned int NodeAddress;
+	volatile unsigned int PayLoad;
+}LoRaCMD_TypeDef;
+
+typedef struct
+{
+	volatile unsigned int Preamble;
+	volatile unsigned int NodeAddress;
+	volatile unsigned int PayLoad;
+}LoRaEcho_TypeDef;
+
+#define RX_TIMEOUT_VALUE                            3000
 #define BUFFER_SIZE                                 64 // Define the payload size here
 #define LED_PERIOD_MS               200
+#define NODE_NUMBER               10
+#define LORA_CMD_LENGTH               12
+#define LORA_ECHO_LENGTH               12
 
 #define LEDS_OFF   do{ \
                    LED_Off( LED_BLUE ) ;   \
@@ -134,12 +152,17 @@ typedef enum
                    } while(0) ;
 
 const uint8_t PingMsg[] = "PING";
-const uint8_t PongMsg[] = "PONG";
+uint8_t PongMsg[4];
+									 
+const uint8_t Node_Number =  NODE_NUMBER;
 
 uint16_t BufferSize = BUFFER_SIZE;
 uint8_t Buffer[BUFFER_SIZE];
 
 States_t State = LOWPOWER;
+LoRaCMD_TypeDef LoRaCMD;
+//+1, the last LoRaEcho struct used to buffer receive data
+LoRaEcho_TypeDef LoRaEcho[NODE_NUMBER+1];
 
 int8_t RssiValue = 0;
 int8_t SnrValue = 0;
@@ -230,7 +253,7 @@ static void RTC_AlarmConfig(void)
   /*##-2- Configure the Time #################################################*/
   /* Set Time: 23:59:55 */
   stimestructure.Hours = 0x17;
-  stimestructure.Minutes = 0x40;
+  stimestructure.Minutes = 0x00;
   stimestructure.Seconds = 0x00;
   stimestructure.TimeFormat = RTC_HOURFORMAT12_AM;
   stimestructure.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
@@ -250,9 +273,9 @@ static void RTC_AlarmConfig(void)
   salarmstructure.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;
   salarmstructure.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_NONE;
   salarmstructure.AlarmTime.TimeFormat = RTC_HOURFORMAT12_AM;
-  salarmstructure.AlarmTime.Hours = 0x16;
+  salarmstructure.AlarmTime.Hours = 0x17;
   salarmstructure.AlarmTime.Minutes = 0x00;
-  salarmstructure.AlarmTime.Seconds = 0x00;
+  salarmstructure.AlarmTime.Seconds = 0x05;
   
   if(HAL_RTC_SetAlarm_IT(&RtcHandle,&salarmstructure,RTC_FORMAT_BCD) != HAL_OK)
   {
@@ -299,6 +322,20 @@ int main( void )
   RtcHandle.Init.OutPut         = RTC_OUTPUT_DISABLE;
   RtcHandle.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
   RtcHandle.Init.OutPutType     = RTC_OUTPUT_TYPE_OPENDRAIN;
+	
+	for(i=0; i<4; i++)
+	{
+		PongMsg[i] = 0xaa;
+	}
+	if(  isMaster == true)
+	{
+		LoRaCMD.Preamble = 0x55555555;
+		LoRaCMD.NodeAddress = 0x01;
+		LoRaCMD.PayLoad = 0x66666666;
+	}
+	else
+		LoRaCMD.Preamble = 0xaaaa;
+	
 	//__chark
 
   HAL_Init( );
@@ -313,44 +350,44 @@ int main( void )
 	  /* Check and handle if the system was resumed from StandBy mode */ 
   if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
   {
-		BSP_LED_On(LED2);
+		//BSP_LED_On(LED2);
 		
-		//PRINTF("wake up from standby mode\n\r");
+		PRINTF("wake up from standby mode\n\r");
     /* Clear Standby flag */
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB); 
 
     /* Get the date available in RTC. */
-    if(HAL_RTC_GetDate(&RtcHandle,&sdatestructure,RTC_FORMAT_BCD) != HAL_OK)
-    {
-      /* Initialization Error */
-      Error_Handler(); 
-    } 
+//    if(HAL_RTC_GetDate(&RtcHandle,&sdatestructure,RTC_FORMAT_BCD) != HAL_OK)
+//    {
+//      /* Initialization Error */
+//      Error_Handler(); 
+//    } 
 
     /* Check that 1 day elapsed after wake-up */
     /* As RTC_AlarmConfig initializes date to 31 october 2014, check if date is
        equal to 1st of November 2014 */
-    if ((sdatestructure.Date != 1) ||(sdatestructure.Year != 0x14) || \
-        (sdatestructure.Month != RTC_MONTH_NOVEMBER))
-    {
-      Error_Handler();
-    }
-    else
-    {
-			
-      BSP_LED_On(LED2);
-			while(1);
-			//PRINTF("success to wake up\n\r");
-    }
+//    if ((sdatestructure.Date != 1) ||(sdatestructure.Year != 0x14) || \
+//        (sdatestructure.Month != RTC_MONTH_NOVEMBER))
+//    {
+//      Error_Handler();
+//    }
+//    else
+//    {
+//			
+//      BSP_LED_On(LED2);
+//			while(1);
+//			//PRINTF("success to wake up\n\r");
+//    }
   }
 
 	
 	//__chark
 	
   /* Led Timers*/
-//  TimerInit(&timerLed, OnledEvent);   
-//  TimerSetValue( &timerLed, LED_PERIOD_MS);
+  TimerInit(&timerLed, OnledEvent);   
+  TimerSetValue( &timerLed, LED_PERIOD_MS);
 
-//  TimerStart(&timerLed );
+  TimerStart(&timerLed );
 
   // Radio initialization
   RadioEvents.TxDone = OnTxDone;
@@ -391,12 +428,17 @@ int main( void )
     #error "Please define a frequency band in the compiler options."
 #endif
                                   
-  //Radio.Rx( RX_TIMEOUT_VALUE );
+  Radio.Rx( RX_TIMEOUT_VALUE );
 	//test = HAL_RCC_GetHCLKFreq();
 	//LPM_EnterOffMode();
-
-
+//	BSP_LED_On(LED1);
+//	BSP_LED_On(LED2);
+//	BSP_LED_On(LED3);
+//	BSP_LED_On(LED4);
+	LED_Toggle( LED1 ) ;
 																	
+
+	
   while( 1 )
   {
     switch( State )
@@ -409,77 +451,112 @@ int main( void )
           if( strncmp( ( const char* )Buffer, ( const char* )PongMsg, 4 ) == 0 )
           {
             TimerStop(&timerLed );
-            LED_Off( LED_BLUE);
-            LED_Off( LED_GREEN ) ; 
-            LED_Off( LED_RED1 ) ;;
+//            LED_Off( LED_BLUE);
+//            LED_Off( LED_GREEN ) ; 
+//            LED_Off( LED_RED1 ) ;;
             // Indicates on a LED that the received frame is a PONG
-            LED_Toggle( LED_RED2 ) ;
-
+            LED_Toggle( LED2 ) ;
+						
+						memcpy(&LoRaEcho[NODE_NUMBER], Buffer, LORA_ECHO_LENGTH);
+						memcpy(&LoRaEcho[ (unsigned char) LoRaEcho[NODE_NUMBER].NodeAddress ], &LoRaEcho[NODE_NUMBER], LORA_ECHO_LENGTH);	
+            LED_Toggle( LED2 ) ;
+						PRINTF("RESCEIVE PONG\n\r");
 
             // Send the next PING frame      
-            Buffer[0] = 'P';
-            Buffer[1] = 'I';
-            Buffer[2] = 'N';
-            Buffer[3] = 'G';
-            // We fill the buffer with numbers for the payload 
-            for( i = 4; i < BufferSize; i++ )
-            {
-              Buffer[i] = i - 4;
-            }
-            PRINTF("...PING\n\r");
+//            Buffer[0] = 'P';
+//            Buffer[1] = 'I';
+//            Buffer[2] = 'N';
+//            Buffer[3] = 'G';
+//            // We fill the buffer with numbers for the payload 
+//            for( i = 4; i < BufferSize; i++ )
+//            {
+//              Buffer[i] = i - 4;
+//            }
+//            PRINTF("...PING\n\r");
 
             DelayMs( 1 ); 
             Radio.Send( Buffer, BufferSize );
             }
-            else if( strncmp( ( const char* )Buffer, ( const char* )PingMsg, 4 ) == 0 )
-            { // A master already exists then become a slave
-              isMaster = false;
-              //GpioWrite( &Led2, 1 ); // Set LED off
-              Radio.Rx( RX_TIMEOUT_VALUE );
-            }
+//            else if( strncmp( ( const char* )Buffer, ( const char* )PingMsg, 4 ) == 0 )
+//            { // A master already exists then become a slave
+//              isMaster = false;
+//              //GpioWrite( &Led2, 1 ); // Set LED off
+//              Radio.Rx( RX_TIMEOUT_VALUE );
+//            }
             else // valid reception but neither a PING or a PONG message
             {    // Set device as master ans start again
               isMaster = true;
               Radio.Rx( RX_TIMEOUT_VALUE );
             }
           }
-        }
-        else
-        {
+				
+					//after RX a frame, check if the frame is receive from the node of last ping address, 
+					//if is True ,contiue with next Node address ,if not , wait for 
+					if(LoRaEcho[NODE_NUMBER].NodeAddress == LoRaCMD.NodeAddress)
+					{
+						PRINTF("EchoData_Match last CMD,send Next PING\n\r");
+						memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
+						for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
+						{
+							Buffer[i] = i - LORA_CMD_LENGTH;
+						}
+						DelayMs( 1 ); 
+						Radio.Send( Buffer, BufferSize );
+						LoRaCMD.NodeAddress++;
+						
+						State = LOWPOWER;
+						Radio.Rx( RX_TIMEOUT_VALUE );
+					}
+					//not match ,wait one more RX_TIMEOUT_VALUE
+					else
+					{
+						PRINTF("EchoData not Match last CMD,send Next PING\n\r");
+						
+						State = LOWPOWER;
+						Radio.Rx( RX_TIMEOUT_VALUE );
+					}
+						
+       }
+       else
+       {
           if( BufferSize > 0 )
           {
-            if( strncmp( ( const char* )Buffer, ( const char* )PingMsg, 4 ) == 0 )
+            if( strncmp( ( const char* )Buffer, ( const char* )PongMsg, 4 ) == 0 )
             {
               // Indicates on a LED that the received frame is a PING
-              TimerStop(&timerLed );
-              LED_Off( LED_RED1);
-              LED_Off( LED_RED2 ) ; 
-              LED_Off( LED_GREEN ) ;
-              LED_Toggle( LED_BLUE );
+//              TimerStop(&timerLed );
+//              LED_Off( LED_RED1);
+//              LED_Off( LED_RED2 ) ; 
+//              LED_Off( LED_GREEN ) ;
+              LED_Toggle( LED1 );
 
               // Send the reply to the PONG string
-              Buffer[0] = 'P';
-              Buffer[1] = 'O';
-              Buffer[2] = 'N';
-              Buffer[3] = 'G';
+//              Buffer[0] = 'P';
+//              Buffer[1] = 'O';
+//              Buffer[2] = 'N';
+//              Buffer[3] = 'G';
               // We fill the buffer with numbers for the payload 
-              for( i = 4; i < BufferSize; i++ )
-              {
-                Buffer[i] = i - 4;
-              }
-              DelayMs( 1 );
+//              for( i = 4; i < BufferSize; i++ )
+//              {
+//                Buffer[i] = i - 4;
+//              }
+//              DelayMs( 1 );
 
-              Radio.Send( Buffer, BufferSize );
-              PRINTF("...PONG\n\r");
+//              Radio.Send( Buffer, BufferSize );
+							memcpy(&LoRaEcho[NODE_NUMBER], Buffer, LORA_ECHO_LENGTH);
+							memcpy(&LoRaEcho[ (unsigned char) LoRaEcho[NODE_NUMBER].NodeAddress ], &LoRaEcho[NODE_NUMBER], LORA_ECHO_LENGTH);	
+              PRINTF("RESCEIVE PONG\n\r");
             }
             else // valid reception but not a PING as expected
             {    // Set device as master and start again
-              isMaster = true;
-              Radio.Rx( RX_TIMEOUT_VALUE );
+//              isMaster = true;
+//              Radio.Rx( RX_TIMEOUT_VALUE );
             }
          }
       }
-      State = LOWPOWER;
+			 
+//			Radio.Rx( RX_TIMEOUT_VALUE );
+//      State = LOWPOWER;
       break;
     case TX:
       // Indicates on a LED that we have sent a PING [Master]
@@ -489,29 +566,36 @@ int main( void )
       State = LOWPOWER;
       break;
     case RX_TIMEOUT:
+			PRINTF("RX_TIMEOUT\n\r");
     case RX_ERROR:
+			//PRINTF("RX_ERROR\n\r");
       if( isMaster == true )
       {
         // Send the next PING frame
-				PRINTF("RX_ERROR|RX_TIMEOUT,SEND PING");
+				PRINTF("RX_ERROR,SEND PING\n\r");
 				
-        Buffer[0] = 'P';
-        Buffer[1] = 'I';
-        Buffer[2] = 'N';
-        Buffer[3] = 'G';
-        for( i = 4; i < BufferSize; i++ )
+//        Buffer[0] = 'P';
+//        Buffer[1] = 'I';
+//        Buffer[2] = 'N';
+//        Buffer[3] = 'G';
+				memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
+        for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
         {
-          Buffer[i] = i - 4;
+          Buffer[i] = i - LORA_CMD_LENGTH;
         }
         DelayMs( 1 ); 
         Radio.Send( Buffer, BufferSize );
+				LoRaCMD.NodeAddress++;
       }
       else
       {
         Radio.Rx( RX_TIMEOUT_VALUE );
       }
+			
       State = LOWPOWER;
-      break;
+			Radio.Rx( RX_TIMEOUT_VALUE );
+      
+			break;
     case TX_TIMEOUT:
       Radio.Rx( RX_TIMEOUT_VALUE );
       State = LOWPOWER;
@@ -527,14 +611,19 @@ int main( void )
      * and cortex will not enter low power anyway  */
     if (State == LOWPOWER)
     {
-			EnterStandbyMode_RTC_config();
-			RTC_AlarmConfig();
-    
-			/* Clear all related wakeup flags */
-			__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
-				
-				/* Enter the Standby mode */
-			HAL_PWR_EnterSTANDBYMode();
+			
+		
+//			EnterStandbyMode_RTC_config();
+//			RTC_AlarmConfig();
+//			PRINTF("enter StandbyMode\n\r");
+//    
+//			/* Clear all related wakeup flags */
+//			__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+//				
+//				/* Enter the Standby mode */
+//			HAL_PWR_EnterSTANDBYMode();
+			
+			
 //#ifndef LOW_POWER_DISABLE
 //			SystemClock_STANDBYMode_Config( );
 //      LPM_EnterLowPower( );
@@ -589,11 +678,11 @@ void OnRxError( void )
 
 static void OnledEvent( void )
 {
-  LED_Toggle( LED_BLUE ) ; 
-  LED_Toggle( LED_RED1 ) ; 
-  LED_Toggle( LED_RED2 ) ; 
-  LED_Toggle( LED_GREEN ) ;   
-
+//  LED_Toggle( LED_BLUE ) ; 
+//  LED_Toggle( LED_RED1 ) ; 
+//  LED_Toggle( LED_RED2 ) ; 
+//  LED_Toggle( LED_GREEN ) ;   
+     LED_Toggle( LED2 ) 
   TimerStart(&timerLed );
 }
 
