@@ -1,3 +1,4 @@
+//2018.3.2
 /*
  / _____)             _              | |
 ( (____  _____ ____ _| |_ _____  ____| |__
@@ -167,7 +168,7 @@ void SystemClock_Re_Config(void);
 
 									 
 /* Private function prototypes -----------------------------------------------*/
-//static void RTC_AlarmConfig(void);
+static void RTC_AlarmConfig(void);
 	
 
 /*!
@@ -207,6 +208,79 @@ static void OnledEvent( void );
 /**
  * Main application entry point.
  */
+ 
+static void RTC_AlarmConfig(void)
+{
+  RTC_DateTypeDef  sdatestructure_set = {0};
+  RTC_TimeTypeDef  stimestructure = {0};
+  RTC_AlarmTypeDef salarmstructure = {{0}, 0};
+ 
+  /*##-1- Configure the Date #################################################*/
+  /* Set Date: October 31th 2014 */
+  sdatestructure_set.Year = 0x28;
+  sdatestructure_set.Month = RTC_MONTH_MARCH;
+  sdatestructure_set.Date = 0x01;
+  
+  if(HAL_RTC_SetDate(&RtcHandle,&sdatestructure_set,RTC_FORMAT_BCD) != HAL_OK)
+  {
+    /* Initialization Error */
+    Error_Handler(); 
+  } 
+  
+  /*##-2- Configure the Time #################################################*/
+  /* Set Time: 23:59:55 */
+  stimestructure.Hours = 0x17;
+  stimestructure.Minutes = 0x40;
+  stimestructure.Seconds = 0x00;
+  stimestructure.TimeFormat = RTC_HOURFORMAT12_AM;
+  stimestructure.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
+  stimestructure.StoreOperation = RTC_STOREOPERATION_RESET;
+  if(HAL_RTC_SetTime(&RtcHandle,&stimestructure,RTC_FORMAT_BCD) != HAL_OK)
+  {
+    /* Initialization Error */
+    Error_Handler(); 
+  }  
+
+  /*##-3- Configure the RTC Alarm peripheral #################################*/
+  /* Set Alarm to 00:00:10 
+     RTC Alarm Generation: Alarm on Hours, Minutes and Seconds */
+  salarmstructure.Alarm = RTC_ALARM_A;
+  salarmstructure.AlarmDateWeekDay = RTC_WEEKDAY_MONDAY;
+  salarmstructure.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+  salarmstructure.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;
+  salarmstructure.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_NONE;
+  salarmstructure.AlarmTime.TimeFormat = RTC_HOURFORMAT12_AM;
+  salarmstructure.AlarmTime.Hours = 0x16;
+  salarmstructure.AlarmTime.Minutes = 0x00;
+  salarmstructure.AlarmTime.Seconds = 0x00;
+  
+  if(HAL_RTC_SetAlarm_IT(&RtcHandle,&salarmstructure,RTC_FORMAT_BCD) != HAL_OK)
+  {
+    /* Initialization Error */
+    Error_Handler(); 
+  }
+}
+
+void EnterStandbyMode_RTC_config()
+{
+	RtcHandle.Instance = RTC;
+	RTC_DateTypeDef  sdatestructure = {0};
+	RtcHandle.Instance = RTC;
+	RtcHandle.Init.HourFormat     = RTC_HOURFORMAT_24;
+  RtcHandle.Init.AsynchPrediv   = RTC_ASYNCH_PREDIV;
+  RtcHandle.Init.SynchPrediv    = RTC_SYNCH_PREDIV;
+  RtcHandle.Init.OutPut         = RTC_OUTPUT_DISABLE;
+  RtcHandle.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  RtcHandle.Init.OutPutType     = RTC_OUTPUT_TYPE_OPENDRAIN;
+	
+	if (HAL_RTC_Init(&RtcHandle) != HAL_OK)
+  {
+			/* Initialization Error */
+		BSP_LED_On(LED4);
+    Error_Handler();
+  }
+}
+
 int main( void )
 {
 
@@ -230,23 +304,18 @@ int main( void )
   HAL_Init( );
   
   SystemClock_Config( );
-	
+	//SystemClock_STANDBYMode_Config();
   
   DBG_Init( );
 
   HW_Init( );  
-  
-	//__chark
-	if (HAL_RTC_Init(&RtcHandle) != HAL_OK)
-  {
-			/* Initialization Error */
-    Error_Handler();
-  }
-	
+		
 	  /* Check and handle if the system was resumed from StandBy mode */ 
   if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
   {
-		PRINTF("wake up from standby mode\n\r");
+		BSP_LED_On(LED2);
+		
+		//PRINTF("wake up from standby mode\n\r");
     /* Clear Standby flag */
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_SB); 
 
@@ -267,8 +336,10 @@ int main( void )
     }
     else
     {
-      //BSP_LED_On(LED3);
-			PRINTF("success to wake up\n\r");
+			
+      BSP_LED_On(LED2);
+			while(1);
+			//PRINTF("success to wake up\n\r");
     }
   }
 
@@ -324,9 +395,8 @@ int main( void )
 	//test = HAL_RCC_GetHCLKFreq();
 	//LPM_EnterOffMode();
 
-	
+
 																	
-														
   while( 1 )
   {
     switch( State )
@@ -457,9 +527,18 @@ int main( void )
      * and cortex will not enter low power anyway  */
     if (State == LOWPOWER)
     {
-#ifndef LOW_POWER_DISABLE
-      LPM_EnterLowPower( );
-#endif
+			EnterStandbyMode_RTC_config();
+			RTC_AlarmConfig();
+    
+			/* Clear all related wakeup flags */
+			__HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
+				
+				/* Enter the Standby mode */
+			HAL_PWR_EnterSTANDBYMode();
+//#ifndef LOW_POWER_DISABLE
+//			SystemClock_STANDBYMode_Config( );
+//      LPM_EnterLowPower( );
+//#endif
     }
     ENABLE_IRQ( );
        

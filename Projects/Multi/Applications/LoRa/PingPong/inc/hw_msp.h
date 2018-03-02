@@ -198,6 +198,8 @@ uint16_t HW_AdcReadChannel( uint32_t Channel);
  */
 void SystemClock_Config( void );
 
+void SystemClock_STANDBYMode_Config( void );
+
 #ifdef __cplusplus
 }
 #endif

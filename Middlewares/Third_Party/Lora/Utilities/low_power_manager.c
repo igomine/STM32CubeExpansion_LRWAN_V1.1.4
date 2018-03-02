@@ -60,7 +60,7 @@ static uint32_t OffModeDisable = 0;
 RTC_HandleTypeDef RtcHandle;
 /* Private function prototypes -----------------------------------------------*/
 /* Functions Definition ------------------------------------------------------*/
-static void RTC_AlarmConfig(void);
+//static void RTC_AlarmConfig(void);
 
 void LPM_SetOffMode(LPM_Id_t id, LPM_SetMode_t mode)
 {
@@ -189,7 +189,7 @@ __weak void LPM_ExitOffMode(void) {}
 void LPM_EnterOffMode(void) 
 {
 		PRINTF("enter standby(RTC) mode\n\r");
-    RTC_AlarmConfig();
+    //RTC_AlarmConfig();
     
     /* Clear all related wakeup flags */
     __HAL_PWR_CLEAR_FLAG(PWR_FLAG_WU);
@@ -197,61 +197,61 @@ void LPM_EnterOffMode(void)
     /* Enter the Standby mode */
     HAL_PWR_EnterSTANDBYMode();
 }
-/**
-  * @brief  Configure the current time and date.
-  * @param  None
-  * @retval None
-  */
-static void RTC_AlarmConfig(void)
-{
-  RTC_DateTypeDef  sdatestructure_set = {0};
-  RTC_TimeTypeDef  stimestructure = {0};
-  RTC_AlarmTypeDef salarmstructure = {{0}, 0};
- 
-  /*##-1- Configure the Date #################################################*/
-  /* Set Date: October 31th 2014 */
-  sdatestructure_set.Year = 0x14;
-  sdatestructure_set.Month = RTC_MONTH_OCTOBER;
-  sdatestructure_set.Date = 0x31;
-  
-  if(HAL_RTC_SetDate(&RtcHandle,&sdatestructure_set,RTC_FORMAT_BCD) != HAL_OK)
-  {
-    /* Initialization Error */
-    Error_Handler(); 
-  } 
-  
-  /*##-2- Configure the Time #################################################*/
-  /* Set Time: 23:59:55 */
-  stimestructure.Hours = 0x23;
-  stimestructure.Minutes = 0x59;
-  stimestructure.Seconds = 0x55;
-  stimestructure.TimeFormat = RTC_HOURFORMAT12_AM;
-  stimestructure.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
-  stimestructure.StoreOperation = RTC_STOREOPERATION_RESET;
-  if(HAL_RTC_SetTime(&RtcHandle,&stimestructure,RTC_FORMAT_BCD) != HAL_OK)
-  {
-    /* Initialization Error */
-    Error_Handler(); 
-  }  
+///**
+//  * @brief  Configure the current time and date.
+//  * @param  None
+//  * @retval None
+//  */
+//static void RTC_AlarmConfig(void)
+//{
+//  RTC_DateTypeDef  sdatestructure_set = {0};
+//  RTC_TimeTypeDef  stimestructure = {0};
+//  RTC_AlarmTypeDef salarmstructure = {{0}, 0};
+// 
+//  /*##-1- Configure the Date #################################################*/
+//  /* Set Date: October 31th 2014 */
+//  sdatestructure_set.Year = 0x14;
+//  sdatestructure_set.Month = RTC_MONTH_OCTOBER;
+//  sdatestructure_set.Date = 0x31;
+//  
+//  if(HAL_RTC_SetDate(&RtcHandle,&sdatestructure_set,RTC_FORMAT_BCD) != HAL_OK)
+//  {
+//    /* Initialization Error */
+//    Error_Handler(); 
+//  } 
+//  
+//  /*##-2- Configure the Time #################################################*/
+//  /* Set Time: 23:59:55 */
+//  stimestructure.Hours = 0x23;
+//  stimestructure.Minutes = 0x59;
+//  stimestructure.Seconds = 0x55;
+//  stimestructure.TimeFormat = RTC_HOURFORMAT12_AM;
+//  stimestructure.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
+//  stimestructure.StoreOperation = RTC_STOREOPERATION_RESET;
+//  if(HAL_RTC_SetTime(&RtcHandle,&stimestructure,RTC_FORMAT_BCD) != HAL_OK)
+//  {
+//    /* Initialization Error */
+//    Error_Handler(); 
+//  }  
 
-  /*##-3- Configure the RTC Alarm peripheral #################################*/
-  /* Set Alarm to 00:00:10 
-     RTC Alarm Generation: Alarm on Hours, Minutes and Seconds */
-  salarmstructure.Alarm = RTC_ALARM_A;
-  salarmstructure.AlarmDateWeekDay = RTC_WEEKDAY_MONDAY;
-  salarmstructure.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
-  salarmstructure.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;
-  salarmstructure.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_NONE;
-  salarmstructure.AlarmTime.TimeFormat = RTC_HOURFORMAT12_AM;
-  salarmstructure.AlarmTime.Hours = 0x00;
-  salarmstructure.AlarmTime.Minutes = 0x00;
-  salarmstructure.AlarmTime.Seconds = 0x10;
-  
-  if(HAL_RTC_SetAlarm_IT(&RtcHandle,&salarmstructure,RTC_FORMAT_BCD) != HAL_OK)
-  {
-    /* Initialization Error */
-    Error_Handler(); 
-  }
-}
+//  /*##-3- Configure the RTC Alarm peripheral #################################*/
+//  /* Set Alarm to 00:00:10 
+//     RTC Alarm Generation: Alarm on Hours, Minutes and Seconds */
+//  salarmstructure.Alarm = RTC_ALARM_A;
+//  salarmstructure.AlarmDateWeekDay = RTC_WEEKDAY_MONDAY;
+//  salarmstructure.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+//  salarmstructure.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY;
+//  salarmstructure.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_NONE;
+//  salarmstructure.AlarmTime.TimeFormat = RTC_HOURFORMAT12_AM;
+//  salarmstructure.AlarmTime.Hours = 0x00;
+//  salarmstructure.AlarmTime.Minutes = 0x00;
+//  salarmstructure.AlarmTime.Seconds = 0x01;
+//  
+//  if(HAL_RTC_SetAlarm_IT(&RtcHandle,&salarmstructure,RTC_FORMAT_BCD) != HAL_OK)
+//  {
+//    /* Initialization Error */
+//    Error_Handler(); 
+//  }
+//}
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
