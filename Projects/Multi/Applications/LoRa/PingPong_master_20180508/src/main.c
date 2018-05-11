@@ -110,7 +110,8 @@ uint8_t Buffer[BUFFER_SIZE];
 
 States_t State = LOWPOWER;
 LoRaCMD_TypeDef LoRaCMD;
-LoRaNodeReport_TypeDef LoRaNodeReport[NODE_NUMBER+1];
+LoRaNodeReport_TypeDef LoRaNodeReportBuff[NODE_NUMBER+1];
+LoRaNodeReport_TypeDef LoRaNodeReport;
 									 
 //+1, the last LoRaEcho struct used to buffer receive data
 LoRaEcho_TypeDef LoRaEcho[NODE_NUMBER+1];
@@ -120,6 +121,8 @@ int8_t SnrValue = 0;
 
  /* Led Timers objects*/
 static  TimerEvent_t timerLed;
+static  TimerEvent_t timerSend;
+volatile unsigned int RegularlySend_Peariod_ms = 1000;
 
 //__chark add for enter standby mode and use RTC wake up 
 #define RTC_CLOCK_SOURCE_LSE
@@ -198,6 +201,7 @@ void OnRxError( void );
  * \brief Function executed on when led timer elapses
  */
 static void OnledEvent( void );
+static void OnRegularlySendEvent( void );
 /**
  * Main application entry point.
  */
@@ -278,6 +282,7 @@ int main( void )
 {
 
   bool isMaster = true;
+	State = LOWPOWER;
   uint8_t i;
 //	uint32_t test;
 	
@@ -292,52 +297,18 @@ int main( void )
   RtcHandle.Init.OutPut         = RTC_OUTPUT_DISABLE;
   RtcHandle.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
   RtcHandle.Init.OutPutType     = RTC_OUTPUT_TYPE_OPENDRAIN;
-	
-	for(i=0; i<4; i++)
-	{
-		PongMsg[i] = 0xaa;
-	}
-	if(  isMaster == true)
-	{
-		LoRaCMD.Preamble = 0x55555555;
-		LoRaCMD.NodeAddress = 0x01;
-		LoRaCMD.PayLoad = 0x66666666;
-	}
-	else
-		LoRaCMD.Preamble = 0xaaaa;
-	
-	//__chark
 
-  HAL_Init( );
-  
-  SystemClock_Config( );
-	//SystemClock_STANDBYMode_Config();
-  
+	if(isMaster == false)
+	{
+		LoRaNodeReport.Preamble = 0xaaaaaaaa;
+		LoRaNodeReport.NodeSN = 0x01;
+		LoRaNodeReport.PayLoad = 0x9527;	
+	}
+
+  HAL_Init( );  
+  SystemClock_Config( );  
   DBG_Init( );
-
   HW_Init( );
-//	PRINTF("test\n\r");
-//	PRINTF("var = 0x%x\r\n", PongMsg[0]);
-//		printf("test\r\n");
-//	  printf("var = %d\r\n", PongMsg[i]);
-//__chark init USART1
-		//__chark add USART1 init
-	
-//	  UartHandle_USART1.Instance        = USART_chark;
-//  
-//  UartHandle_USART1.Init.BaudRate   = 115200;
-//  UartHandle_USART1.Init.WordLength = UART_WORDLENGTH_8B;
-//  UartHandle_USART1.Init.StopBits   = UART_STOPBITS_1;
-//  UartHandle_USART1.Init.Parity     = UART_PARITY_NONE;
-//  UartHandle_USART1.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
-//  UartHandle_USART1.Init.Mode       = UART_MODE_TX_RX;
-//  
-//  if(HAL_UART_Init(&UartHandle_USART1) != HAL_OK)
-//  {
-//    /* Initialization Error */
-//    Error_Handler(); 
-//  }
-	
 	
 	  /* Check and handle if the system was resumed from StandBy mode */ 
   if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
@@ -378,9 +349,15 @@ int main( void )
   /* Led Timers*/
   TimerInit(&timerLed, OnledEvent);   
   TimerSetValue( &timerLed, LED_PERIOD_MS);
-
   TimerStart(&timerLed );
 
+	if(isMaster == false)
+	{
+		TimerInit(&timerSend, OnRegularlySendEvent);   
+		TimerSetValue( &timerSend, RegularlySend_Peariod_ms);
+		TimerStart(&timerSend );
+	}
+	
   // Radio initialization
   RadioEvents.TxDone = OnTxDone;
   RadioEvents.RxDone = OnRxDone;
@@ -420,11 +397,11 @@ int main( void )
     #error "Please define a frequency band in the compiler options."
 #endif
                                   
-  Radio.Rx( RX_TIMEOUT_VALUE );
-
-	LED_Toggle( LED1 ) ;
-																	
-
+	if(isMaster==true)
+	{		
+		Radio.Rx( RX_TIMEOUT_VALUE );
+		LED_Toggle( LED1 );
+	}							
 	
   while( 1 )
   {
@@ -439,8 +416,8 @@ int main( void )
           {
             TimerStop(&timerLed );
             LED_Toggle( LED2 ) ;						
-						memcpy(&LoRaNodeReport[0], Buffer, 12);
-            PRINTF("rsv node %x, payload=0x%x\r\n", LoRaNodeReport[0].NodeSN, LoRaNodeReport[0].PayLoad);
+						memcpy(&LoRaNodeReportBuff[0], Buffer, 12);
+            PRINTF("rsv node %x, payload=0x%x\r\n", LoRaNodeReportBuff[0].NodeSN, LoRaNodeReportBuff[0].PayLoad);
            }
 
             else // valid reception but neither a PING or a PONG message
@@ -522,7 +499,7 @@ int main( void )
       // Indicates on a LED that we have sent a PING [Master]
       // Indicates on a LED that we have sent a PONG [Slave]
       //GpioWrite( &Led2, GpioRead( &Led2 ) ^ 1 );
-      Radio.Rx( RX_TIMEOUT_VALUE );
+      //Radio.Rx( RX_TIMEOUT_VALUE );
       State = LOWPOWER;
       break;
     case RX_TIMEOUT:
@@ -638,6 +615,13 @@ static void OnledEvent( void )
 //  LED_Toggle( LED_GREEN ) ;   
      LED_Toggle( LED2 ) 
   TimerStart(&timerLed );
+}
+
+static void OnRegularlySendEvent( void )
+{
+	memcpy(Buffer, &LoRaNodeReport, 12);
+	Radio.Send( Buffer, BufferSize );
+	State = LOWPOWER;
 }
 
 
