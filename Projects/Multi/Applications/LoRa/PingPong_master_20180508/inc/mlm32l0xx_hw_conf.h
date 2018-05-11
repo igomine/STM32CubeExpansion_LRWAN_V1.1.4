@@ -164,6 +164,25 @@ Maintainer: Miguel Luis and Gregory Cristian
 #define USARTX_RX_GPIO_PORT            GPIOA 
 #define USARTX_RX_AF                   GPIO_AF4_USART2
 
+//__chark
+#define USART_chark                           USART1
+#define USARTx_CLK_ENABLE()              __USART1_CLK_ENABLE()
+#define USARTx_RX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
+#define USARTx_TX_GPIO_CLK_ENABLE()      __GPIOA_CLK_ENABLE()
+
+#define USARTx_FORCE_RESET()             __USART1_FORCE_RESET()
+#define USARTx_RELEASE_RESET()           __USART1_RELEASE_RESET()
+
+/* Definition for USARTx Pins */
+#define USARTx_TX_PIN                    GPIO_PIN_9
+#define USARTx_TX_GPIO_PORT              GPIOA
+#define USARTx_TX_AF                     GPIO_AF4_USART1
+#define USARTx_RX_PIN                    GPIO_PIN_10
+#define USARTx_RX_GPIO_PORT              GPIOA
+#define USARTx_RX_AF                     GPIO_AF4_USART1
+
+//__chark
+
 /* Definition for USARTx's NVIC */
 #define USARTX_IRQn                      USART2_IRQn
 #define USARTX_IRQHandler                USART2_IRQHandler

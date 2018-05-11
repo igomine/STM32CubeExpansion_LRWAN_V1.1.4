@@ -1,67 +1,9 @@
-//2018.3.2
-//test
-/*
- / _____)             _              | |
-( (____  _____ ____ _| |_ _____  ____| |__
- \____ \| ___ |    (_   _) ___ |/ ___)  _ \
- _____) ) ____| | | || |_| ____( (___| | | |
-(______/|_____)_|_|_| \__)_____)\____)_| |_|
-    (C)2013 Semtech
-
-Description: Ping-Pong implementation
-
-License: Revised BSD License, see LICENSE.TXT file include in the project
-
-Maintainer: Miguel Luis and Gregory Cristian
-*/
-/******************************************************************************
-  * @file    main.c
-  * @author  MCD Application Team
-  * @version V1.1.4
-  * @date    08-January-2018
-  * @brief   this is the main!
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics International N.V. 
-  * All rights reserved.</center></h2>
-  *
-  * Redistribution and use in source and binary forms, with or without 
-  * modification, are permitted, provided that the following conditions are met:
-  *
-  * 1. Redistribution of source code must retain the above copyright notice, 
-  *    this list of conditions and the following disclaimer.
-  * 2. Redistributions in binary form must reproduce the above copyright notice,
-  *    this list of conditions and the following disclaimer in the documentation
-  *    and/or other materials provided with the distribution.
-  * 3. Neither the name of STMicroelectronics nor the names of other 
-  *    contributors to this software may be used to endorse or promote products 
-  *    derived from this software without specific written permission.
-  * 4. This software, including modifications and/or derivative works of this 
-  *    software, must execute solely and exclusively on microcontroller or
-  *    microprocessor devices manufactured by or for STMicroelectronics.
-  * 5. Redistribution and use of this software other than as permitted under 
-  *    this license is void and will automatically terminate your rights under 
-  *    this license. 
-  *
-  * THIS SOFTWARE IS PROVIDED BY STMICROELECTRONICS AND CONTRIBUTORS "AS IS" 
-  * AND ANY EXPRESS, IMPLIED OR STATUTORY WARRANTIES, INCLUDING, BUT NOT 
-  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
-  * PARTICULAR PURPOSE AND NON-INFRINGEMENT OF THIRD PARTY INTELLECTUAL PROPERTY
-  * RIGHTS ARE DISCLAIMED TO THE FULLEST EXTENT PERMITTED BY LAW. IN NO EVENT 
-  * SHALL STMICROELECTRONICS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, 
-  * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
-  */
 
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "hw.h"
 #include "radio.h"
 #include "timeServer.h"
@@ -132,6 +74,13 @@ typedef struct
 
 typedef struct
 {
+	volatile unsigned int Preamble;	//suppose is a 0xaa aa aa aa
+	volatile unsigned int NodeSN;
+	volatile unsigned int PayLoad;
+}LoRaNodeReport_TypeDef;
+
+typedef struct
+{
 	volatile unsigned int Preamble;
 	volatile unsigned int NodeAddress;
 	volatile unsigned int PayLoad;
@@ -161,6 +110,8 @@ uint8_t Buffer[BUFFER_SIZE];
 
 States_t State = LOWPOWER;
 LoRaCMD_TypeDef LoRaCMD;
+LoRaNodeReport_TypeDef LoRaNodeReport[NODE_NUMBER+1];
+									 
 //+1, the last LoRaEcho struct used to buffer receive data
 LoRaEcho_TypeDef LoRaEcho[NODE_NUMBER+1];
 
@@ -187,9 +138,28 @@ static  TimerEvent_t timerLed;
 
 
 void SystemClock_Re_Config(void);
-//__chark
+//add for USART1 print __chark
 
-									 
+UART_HandleTypeDef UartHandle_USART1;
+
+#ifdef __GNUC__
+/* With GCC, small printf (option LD Linker->Libraries->Small printf
+   set to 'Yes') calls __io_putchar() */
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
+
+PUTCHAR_PROTOTYPE
+{
+  /* Place your implementation of fputc here */
+  /* e.g. write a character to the USART2 and Loop until the end of transmission */
+  HAL_UART_Transmit(&UartHandle_USART1, (uint8_t *)&ch, 1, 0xFFFF);
+
+  return ch;
+}
+
+//__chark									 
 /* Private function prototypes -----------------------------------------------*/
 static void RTC_AlarmConfig(void);
 	
@@ -345,8 +315,30 @@ int main( void )
   
   DBG_Init( );
 
-  HW_Init( );  
-		
+  HW_Init( );
+//	PRINTF("test\n\r");
+//	PRINTF("var = 0x%x\r\n", PongMsg[0]);
+//		printf("test\r\n");
+//	  printf("var = %d\r\n", PongMsg[i]);
+//__chark init USART1
+		//__chark add USART1 init
+	
+//	  UartHandle_USART1.Instance        = USART_chark;
+//  
+//  UartHandle_USART1.Init.BaudRate   = 115200;
+//  UartHandle_USART1.Init.WordLength = UART_WORDLENGTH_8B;
+//  UartHandle_USART1.Init.StopBits   = UART_STOPBITS_1;
+//  UartHandle_USART1.Init.Parity     = UART_PARITY_NONE;
+//  UartHandle_USART1.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+//  UartHandle_USART1.Init.Mode       = UART_MODE_TX_RX;
+//  
+//  if(HAL_UART_Init(&UartHandle_USART1) != HAL_OK)
+//  {
+//    /* Initialization Error */
+//    Error_Handler(); 
+//  }
+	
+	
 	  /* Check and handle if the system was resumed from StandBy mode */ 
   if(__HAL_PWR_GET_FLAG(PWR_FLAG_SB) != RESET)
   {
@@ -429,12 +421,7 @@ int main( void )
 #endif
                                   
   Radio.Rx( RX_TIMEOUT_VALUE );
-	//test = HAL_RCC_GetHCLKFreq();
-	//LPM_EnterOffMode();
-//	BSP_LED_On(LED1);
-//	BSP_LED_On(LED2);
-//	BSP_LED_On(LED3);
-//	BSP_LED_On(LED4);
+
 	LED_Toggle( LED1 ) ;
 																	
 
@@ -446,78 +433,50 @@ int main( void )
     case RX:
       if( isMaster == true )
       {
-        if( BufferSize > 0 )
+        if( BufferSize > 0 && BufferSize == 12 )
         {
           if( strncmp( ( const char* )Buffer, ( const char* )PongMsg, 4 ) == 0 )
           {
             TimerStop(&timerLed );
-//            LED_Off( LED_BLUE);
-//            LED_Off( LED_GREEN ) ; 
-//            LED_Off( LED_RED1 ) ;;
-            // Indicates on a LED that the received frame is a PONG
-            LED_Toggle( LED2 ) ;
-						
-						memcpy(&LoRaEcho[NODE_NUMBER], Buffer, LORA_ECHO_LENGTH);
-						memcpy(&LoRaEcho[ (unsigned char) LoRaEcho[NODE_NUMBER].NodeAddress ], &LoRaEcho[NODE_NUMBER], LORA_ECHO_LENGTH);	
-            LED_Toggle( LED2 ) ;
-						PRINTF("RESCEIVE PONG\n\r");
+            LED_Toggle( LED2 ) ;						
+						memcpy(&LoRaNodeReport[0], Buffer, 12);
+            PRINTF("rsv node %x, payload=0x%x\r\n", LoRaNodeReport[0].NodeSN, LoRaNodeReport[0].PayLoad);
+           }
 
-            // Send the next PING frame      
-//            Buffer[0] = 'P';
-//            Buffer[1] = 'I';
-//            Buffer[2] = 'N';
-//            Buffer[3] = 'G';
-//            // We fill the buffer with numbers for the payload 
-//            for( i = 4; i < BufferSize; i++ )
-//            {
-//              Buffer[i] = i - 4;
-//            }
-//            PRINTF("...PING\n\r");
-
-            DelayMs( 1 ); 
-            Radio.Send( Buffer, BufferSize );
-            }
-//            else if( strncmp( ( const char* )Buffer, ( const char* )PingMsg, 4 ) == 0 )
-//            { // A master already exists then become a slave
-//              isMaster = false;
-//              //GpioWrite( &Led2, 1 ); // Set LED off
-//              Radio.Rx( RX_TIMEOUT_VALUE );
-//            }
             else // valid reception but neither a PING or a PONG message
             {    // Set device as master ans start again
-              isMaster = true;
-              Radio.Rx( RX_TIMEOUT_VALUE );
+              PRINTF("rsv unknown msg\r\n");
             }
           }
 				
 					//after RX a frame, check if the frame is receive from the node of last ping address, 
 					//if is True ,contiue with next Node address ,if not , wait for 
-					if(LoRaEcho[NODE_NUMBER].NodeAddress == LoRaCMD.NodeAddress)
-					{
-						PRINTF("EchoData_Match last CMD,send Next PING\n\r");
-						memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
-						for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
-						{
-							Buffer[i] = i - LORA_CMD_LENGTH;
-						}
-						DelayMs( 1 ); 
-						Radio.Send( Buffer, BufferSize );
-						LoRaCMD.NodeAddress++;
-						
-						State = LOWPOWER;
-						Radio.Rx( RX_TIMEOUT_VALUE );
-					}
-					//not match ,wait one more RX_TIMEOUT_VALUE
-					else
-					{
-						PRINTF("EchoData not Match last CMD,send Next PING\n\r");
-						
-						State = LOWPOWER;
-						Radio.Rx( RX_TIMEOUT_VALUE );
-					}
+//					if(LoRaEcho[NODE_NUMBER].NodeAddress == LoRaCMD.NodeAddress)
+//					{
+//						PRINTF("EchoData_Match last CMD,send Next PING\n\r");
+//						memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
+//						for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
+//						{
+//							Buffer[i] = i - LORA_CMD_LENGTH;
+//						}
+//						DelayMs( 1 ); 
+//						Radio.Send( Buffer, BufferSize );
+//						LoRaCMD.NodeAddress++;
+//						
+//						State = LOWPOWER;
+//						Radio.Rx( RX_TIMEOUT_VALUE );
+//					}
+//					//not match ,wait one more RX_TIMEOUT_VALUE
+//					else
+//					{
+//						PRINTF("EchoData not Match last CMD,send Next PING\n\r");
+//						
+//						State = LOWPOWER;
+//						Radio.Rx( RX_TIMEOUT_VALUE );
+//					}
 						
        }
-       else
+			else	//if node is a slave
        {
           if( BufferSize > 0 )
           {
@@ -555,8 +514,9 @@ int main( void )
          }
       }
 			 
-//			Radio.Rx( RX_TIMEOUT_VALUE );
-//      State = LOWPOWER;
+      Radio.Rx( RX_TIMEOUT_VALUE );
+      State = LOWPOWER;
+
       break;
     case TX:
       // Indicates on a LED that we have sent a PING [Master]
@@ -568,33 +528,27 @@ int main( void )
     case RX_TIMEOUT:
 			PRINTF("RX_TIMEOUT\n\r");
     case RX_ERROR:
-			//PRINTF("RX_ERROR\n\r");
-      if( isMaster == true )
-      {
-        // Send the next PING frame
-				PRINTF("RX_ERROR,SEND PING\n\r");
-				
-//        Buffer[0] = 'P';
-//        Buffer[1] = 'I';
-//        Buffer[2] = 'N';
-//        Buffer[3] = 'G';
-				memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
-        for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
-        {
-          Buffer[i] = i - LORA_CMD_LENGTH;
-        }
-        DelayMs( 1 ); 
-        Radio.Send( Buffer, BufferSize );
-				LoRaCMD.NodeAddress++;
-      }
-      else
-      {
-        Radio.Rx( RX_TIMEOUT_VALUE );
-      }
-			
+//			//PRINTF("RX_ERROR\n\r");
+//      if( isMaster == true )
+//      {
+//        // Send the next PING frame
+//				PRINTF("RX_ERROR,SEND PING\n\r");
+
+//				memcpy(Buffer, &LoRaCMD, LORA_CMD_LENGTH);
+//        for( i = LORA_CMD_LENGTH; i < BufferSize; i++ )
+//        {
+//          Buffer[i] = i - LORA_CMD_LENGTH;
+//        }
+//        DelayMs( 1 ); 
+//        Radio.Send( Buffer, BufferSize );
+//				LoRaCMD.NodeAddress++;
+//      }
+//      else
+//      {
+//        Radio.Rx( RX_TIMEOUT_VALUE );
+//      }			
       State = LOWPOWER;
-			Radio.Rx( RX_TIMEOUT_VALUE );
-      
+			Radio.Rx( RX_TIMEOUT_VALUE );      
 			break;
     case TX_TIMEOUT:
       Radio.Rx( RX_TIMEOUT_VALUE );
@@ -606,7 +560,7 @@ int main( void )
       break;
     }
     
-    DISABLE_IRQ( );
+    //DISABLE_IRQ( );
     /* if an interupt has occured after __disable_irq, it is kept pending 
      * and cortex will not enter low power anyway  */
     if (State == LOWPOWER)
@@ -629,7 +583,7 @@ int main( void )
 //      LPM_EnterLowPower( );
 //#endif
     }
-    ENABLE_IRQ( );
+    //ENABLE_IRQ( );
        
   }
 }

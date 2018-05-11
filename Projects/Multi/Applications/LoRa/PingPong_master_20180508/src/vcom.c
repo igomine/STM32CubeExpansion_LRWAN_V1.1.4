@@ -95,6 +95,8 @@ void vcom_Init(void)
   
   HAL_NVIC_SetPriority(USARTX_IRQn, 0x1, 0);
   HAL_NVIC_EnableIRQ(USARTX_IRQn);
+	
+
 }
 
 
